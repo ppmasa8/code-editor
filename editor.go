@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"syscall"
@@ -40,11 +41,13 @@ func enableRawMode() {
 	origTermios := TcGetAttr(os.Stdin.Fd())
 	var raw Termios
 	raw = *origTermios
-	raw.Iflag &^= syscall.IXON | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
+	raw.Iflag &^= syscall.BRKINT | syscall.IXON | syscall.ICRNL | syscall.INPCK | syscall.ISTRIP | syscall.IXON
 	raw.Oflag &^= syscall.OPOST
-	raw.Lflag &^=syscall.ECHO | syscall.ICANON | syscall.ISIG
+	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.ISIG
 	raw.Cflag |= syscall.CS8
 	raw.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG
+	raw.Cc[syscall.VMIN+1] = 0
+	raw.Cc[syscall.VTIME+1] = 1
 	if e := TcSetAttr(os.Stdin.Fd(), &raw); e != nil {
 		fmt.Fprintf(os.Stderr, "Problem enabling raw mode: %s\n", e)
 		os.Exit(2)
@@ -63,14 +66,20 @@ func main() {
 	enableRawMode()
 	defer disableRawMode()
 	buffer := make([]byte, 1)
-	for cc, err := os.Stdin.Read(buffer); buffer[0] != 'q' && err == nil && cc == 1; cc, err = os.Stdin.Read(buffer) {
-		var r rune
-		r = rune(buffer[0])
-		if (strconv.IsPrint(r)) {
-			fmt.Printf("%d  %c\r\n", buffer[0], r)
+	var cc int
+	var err error
+	for cc, err = os.Stdin.Read(buffer);
+		buffer[0] != 'q' && cc >= 0;
+		cc, err = os.Stdin.Read(buffer) {
+		if buffer[0] > 20 && buffer[0] < 0x7f {
+			fmt.Printf("%3d  %c  %d\r\n", buffer[0], buffer[0], cc)
 		} else {
-			fmt.Printf("%d\r\n", buffer[0])
+			fmt.Printf("%3d      %d\r\n", buffer[0], cc)
 		}
+		buffer[0] = 0
 	}
-	os.Exit(0)
+	if err != nil {
+		disableRawMode()
+		log.Fatal(err)
+	}
 }
