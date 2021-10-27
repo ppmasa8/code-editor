@@ -31,8 +31,7 @@ func TcSetAttr(fd uintptr, termios *Termios) error {
 func TcGetAttr(fd uintptr) *Termios {
 	var termios = &Termios{}
 	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, syscall.TCGETS, uintptr(unsafe.Pointer(termios))); err != 0 {
-		fmt.Fprintf(os.Stderr, "Problem getting terminal attributes\n")
-		os.Exit(2)
+		log.Fatalf("Problem getting termial attributes: %s\n", err)
 	}
 	return termios
 }
@@ -49,16 +48,14 @@ func enableRawMode() {
 	raw.Cc[syscall.VMIN+1] = 0
 	raw.Cc[syscall.VTIME+1] = 1
 	if e := TcSetAttr(os.Stdin.Fd(), &raw); e != nil {
-		fmt.Fprintf(os.Stderr, "Problem enabling raw mode: %s\n", e)
-		os.Exit(2)
+		log.Fatalf("Problem enabling raw mode: %s\n", e)
 	}
 }
 
 func disableRawMode() {
 	fmt.Fprintf(os.Stderr, "Enter disableRawmode\n")
 	if e := TcSetAttr(os.Stdin.Fd(), origTermios); e != nil {
-		fmt.Fprintf(os.Stderr, "Problem disabling raw mode: %s\n", e)
-		os.Exit(1)
+		log.Fatalf("Problem disabling raw mode: %s\n", e)
 	}
 }
 
