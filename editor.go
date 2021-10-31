@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
-	"strconv"
 	"syscall"
 	"unsafe"
 )
@@ -30,7 +30,7 @@ func die(err error) {
 }
 
 func TcSetAttr(fd uintptr, termios *Termios) error {
-	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, uintptr(syscall.TCSETS+1), uintptr(unsafe.Pointer(termios))); err != 0 {
+	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, uintptr(/*TCSETS*/0x5402+1), uintptr(unsafe.Pointer(termios))); err != 0 {
 		return err
 	}
 	return nil
@@ -38,7 +38,7 @@ func TcSetAttr(fd uintptr, termios *Termios) error {
 
 func TcGetAttr(fd uintptr) *Termios {
 	var termios = &Termios{}
-	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, syscall.TCGETS, uintptr(unsafe.Pointer(termios))); err != 0 {
+	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, /*TCGETS*/0x5401, uintptr(unsafe.Pointer(termios))); err != 0 {
 		log.Fatalf("Problem getting termial attributes: %s\n", err)
 	}
 	return termios
@@ -90,12 +90,18 @@ func editorProcessKeypress() {
 	}
 }
 
+/*** output ***/
+func editorRefleshScreen() {
+	io.WriteString(os.Stdout, "\x1b[2J");
+}
+
 /*** init ***/
 func main() {
 	enableRawMode()
 	defer disableRawMode()
 
 	for {
+		editorRefleshScreen()
 		editorProcessKeypress()
 	}
 }
